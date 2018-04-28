@@ -3,23 +3,13 @@
 -- Author: Owen Lu
 --
 -- Description:
--- Lab 6 top level design
+-- Final Project (Drum Machine) Top Level
 --
 ----------------------------------------------------------------------------------
 
-
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
 use IEEE.NUMERIC_STD.ALL;
-
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
-
 use work.all;
 
 entity top_level is Port (
@@ -35,23 +25,24 @@ entity top_level is Port (
 	--audio amplifier
 	AUD_SD : out std_logic;
 	AUD_PWM : out std_logic;
+	--LEDs
 	LED : out std_logic_vector(15 downto 0)
 );
 end top_level;
 
 architecture Behavioral of top_level is
-	constant SAMPLE_PULSE_DIV : unsigned(27 downto 0) := x"00008DB"; --44.1kHz
+	constant SAMPLE_PULSE_DIV : unsigned(27 downto 0) := x"00008DB"; --44.1kHz sample rate
 	
 	signal pwm_duty_cycle1, pwm_duty_cycle2, pwm_duty_cycle3 : std_logic_vector(15 downto 0);
 	signal pwm_sum : signed(15 downto 0);
 	signal beat : unsigned(15 downto 0);
 	signal trigger_pulse1, trigger_pulse2, trigger_pulse3, sample_pulse : std_logic;
-	
 	signal pattern_reg1, pattern_reg2, pattern_reg3 : std_logic_vector(15 downto 0);
 	signal en1, en2, en3 : std_logic;
 	
 begin
 
+--Main state machine to generate control signals
 ctrl : entity control port map (
 	clk => CLK100MHZ,
 	rst => BTNC,
@@ -67,6 +58,7 @@ ctrl : entity control port map (
 	LED => LED 
 );
 
+--Registers to store rhythm patterns defined by switch inputs
 process (CLK100MHZ, BTNC) begin
 	if BTNC = '1' then
 		pattern_reg1 <= (others => '0');
@@ -85,6 +77,7 @@ process (CLK100MHZ, BTNC) begin
 	end if;
 end process;
 
+--timing pulse generation for bass drum
 pl : entity pattern_loop port map (
 	clk => CLK100MHZ,
 	rst => BTNC,
@@ -93,6 +86,7 @@ pl : entity pattern_loop port map (
 	pulse_out => trigger_pulse1
 	);
 
+--timing pulse generation for snare drum
 p2 : entity pattern_loop port map (
 	clk => CLK100MHZ,
 	rst => BTNC,
@@ -101,6 +95,7 @@ p2 : entity pattern_loop port map (
 	pulse_out => trigger_pulse2
 	);
 	
+--timing pulse generation for hi-hat
 p3 : entity pattern_loop port map (
 		clk => CLK100MHZ,
 		rst => BTNC,
@@ -109,6 +104,7 @@ p3 : entity pattern_loop port map (
 		pulse_out => trigger_pulse3
 		);
 
+--audio sample rate generation
 sp : entity pulseGenerator port map (
 	clk => CLK100MHZ,
 	reset => BTNC,
@@ -116,6 +112,7 @@ sp : entity pulseGenerator port map (
 	Pulse => sample_pulse
 );
 
+--base drum waveform player
 wp1 : entity waveform_player generic map (
 	mem_file => "kick.mem",
 	mem_file_length => x"5FCA"
@@ -127,6 +124,7 @@ wp1 : entity waveform_player generic map (
 	dout => pwm_duty_cycle1
 );
 
+--snare drum waveform player
 wp2 : entity waveform_player generic map (
 	mem_file => "snare.mem",
 	mem_file_length => x"4500"
@@ -138,6 +136,7 @@ wp2 : entity waveform_player generic map (
 	dout => pwm_duty_cycle2
 );
 
+--hi-hat waveform player
 wp3 : entity waveform_player generic map (
 	mem_file => "hat.mem",
 	mem_file_length => x"13FE"
@@ -149,9 +148,10 @@ wp3 : entity waveform_player generic map (
 	dout => pwm_duty_cycle3
 );
 
+--Add the waveforms to generate net PWM value
 pwm_sum <= signed(pwm_duty_cycle1) + signed(pwm_duty_cycle2) + signed(pwm_duty_cycle3);
 
---generate pwm signal based on sine value
+--generate pwm signal based on signed duty cycle
 pwm : entity audio_pwm generic map (
 	resolution => 10
 ) port map (

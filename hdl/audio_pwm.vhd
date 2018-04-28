@@ -10,21 +10,14 @@
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
 use IEEE.NUMERIC_STD.ALL;
-
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
 
 entity audio_pwm is Generic (
 	resolution : Integer
 ); Port ( 
 	clk : in std_logic;
 	reset : in std_logic;
+	--changed duty cyle to signed value
 	duty_cycle : in signed(resolution - 1 downto 0);
 	pwm_out : out std_logic
 );

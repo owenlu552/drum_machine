@@ -1,21 +1,10 @@
 ----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
--- 
--- Create Date: 04/28/2018 11:05:33 AM
--- Design Name: 
--- Module Name: control - Behavioral
--- Project Name: 
--- Target Devices: 
--- Tool Versions: 
--- Description: 
--- 
--- Dependencies: 
--- 
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
--- 
+--
+-- Author: Owen Lu
+--
+-- Description:
+-- High level state machine and control logic
+--
 ----------------------------------------------------------------------------------
 
 
@@ -34,19 +23,23 @@ use work.all;
 entity control is Port (
 	clk : in std_logic;
 	rst : in std_logic;
+	--push buttons for user input
 	btnu, btnd, btnr : in std_logic;
+	--enable lines for pattern registers
 	en1, en2, en3 : out std_logic;
+	--one-hot encoding of the current loop position
 	beat : out unsigned(15 downto 0);
-	
+	--7 segment display for tempo
 	SEG7_CATH : out std_logic_vector(7 downto 0);
 	SEG7_AN : out std_logic_vector(7 downto 0);
+	--led to visualize loop position
 	LED : out std_logic_vector(15 downto 0)
 );
 end control;
 
 architecture Behavioral of control is
-	constant BEAT_PULSE_DIV_INCR : unsigned(27 downto 0) := x"00F4240"; --10ms
-	constant BEAT_PULSE_DIV_DEFAULT : unsigned(27 downto 0) := x"0C65D40"; --130ms per division
+	constant BEAT_PULSE_DIV_DEFAULT : unsigned(27 downto 0) := x"0C65D40"; --default loop speed: 130ms per switch position
+	constant BEAT_PULSE_DIV_INCR : unsigned(27 downto 0) := x"00F4240"; --10ms increments for tempo adjustment
 	constant BIT0 : unsigned(15 downto 0) := x"8000";
 	
 	type top_state is (S_TEMPO, S_LENGTH, S_INST1, S_INST2, S_INST3);
@@ -63,24 +56,24 @@ architecture Behavioral of control is
 	signal beat_rst : std_logic;
 begin
 
+--debounce all push-buttons
 debounceR : entity button_pulse port map (
 	clk => clk,
 	btn => btnr,
 	pulse => btnr_db
 );
-
 debounceU : entity button_pulse port map (
 	clk => clk,
 	btn => btnu,
 	pulse => btnu_db
 );
-
 debounceD : entity button_pulse port map (
 	clk => clk,
 	btn => btnd,
 	pulse => btnd_db
 );
 
+--display tempo in ms per switch position
 seg7 : entity seg7_controller port map (
 	clk => clk,
 	rst => rst,
@@ -95,9 +88,9 @@ seg7 : entity seg7_controller port map (
 	an => an,
 	cath => SEG7_CATH
 );
-
 SEG7_AN <= "11111" & an(2 downto 0);
 
+--High level state machine
 process (clk) begin
 	if rising_edge(clk) then
 		state <= next_state;
@@ -105,6 +98,7 @@ process (clk) begin
 end process;
 
 process (btnr_db, rst) begin
+	--default assignments
 	next_state <= state;
 	en1 <= '0';
 	en2 <= '0';
@@ -116,28 +110,33 @@ process (btnr_db, rst) begin
 		next_state <= S_TEMPO;
 	else
 		case state is
+			--User sets tempo using up/down buttons
 			when S_TEMPO =>
 				beat_rst <= '1';
 				set_tempo <= '1';
 				if btnr_db = '1' then
 					next_state <= S_LENGTH;
 				end if;
+			--User sets pattern length using up/down buttons
 			when S_LENGTH =>
 				beat_rst <= '1';
 				set_length <= '1';
 				if btnr_db = '1' then
 					next_state <= S_INST1;
 				end if;
+			--User sets bass drum pattern using switches
 			when S_INST1 =>
 				en1 <= '1';
 				if btnr_db = '1' then
 					next_state <= S_INST2;
 				end if;
+			--user sets snare drum pattern using switches
 			when S_INST2 =>
 				en2 <= '1';
 				if btnr_db = '1' then
 					next_state <= S_INST3;
-				end if;	
+				end if;
+			--user sets hi-hat pattern using switches
 			when S_INST3 =>
 				en3 <= '1';
 				if btnr_db = '1' then
@@ -149,8 +148,10 @@ process (btnr_db, rst) begin
 	end if;
 end process;
 
+--Settings registers
 process (clk, rst) begin
 	if rst = '1' then
+		--default values
 		beat_pulse_div <= BEAT_PULSE_DIV_DEFAULT;
 		tempo_disp <= x"082";
 		beat_len <= 16;
@@ -174,7 +175,7 @@ process (clk, rst) begin
 	end if;
 end process;
 
-
+--generate pulse to advance the loop position
 bp : entity pulseGenerator port map (
 	clk => clk,
 	reset => rst,
@@ -182,6 +183,7 @@ bp : entity pulseGenerator port map (
 	Pulse => beat_pulse
 );
 
+--generate one-hot encoding of loop position (beat)
 process (clk, beat_rst) begin
 	if beat_rst = '1' then
 		beat_i <= BIT0;

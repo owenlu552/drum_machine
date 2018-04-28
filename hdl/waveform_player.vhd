@@ -1,45 +1,36 @@
 ----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
--- 
--- Create Date: 04/22/2018 11:39:44 AM
--- Design Name: 
--- Module Name: waveform_player - Behavioral
--- Project Name: 
--- Target Devices: 
--- Tool Versions: 
--- Description: 
--- 
--- Dependencies: 
--- 
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
--- 
+--
+-- Author: Owen Lu
+--
+-- Description:
+-- Plays a pre-defined waveform using a ROM initialized from a text file
+--
 ----------------------------------------------------------------------------------
 
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
+--use xpm library for ROM generation macro
 Library xpm;
 use xpm.vcomponents.all;
 
 use IEEE.NUMERIC_STD.ALL;
 
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
-
 entity waveform_player is Generic (
+	--text file containing 16-bit audio samples in hex.
+	--must be signed (two's complement) values centered at zero
 	mem_file : string;
+	--number of samples in mem_file
 	mem_file_length : unsigned(15 downto 0)
 );Port (
 	clk : in std_logic;
 	rst : in std_logic;
+	--pulse determining the audio sample rate
 	sample_pulse : in std_logic;
+	--being outputing waveform when this pulse is received
 	start_pulse : in std_logic;
+	--waveform output
 	dout : out std_logic_vector(15 downto 0)
 );
 end waveform_player;
@@ -49,11 +40,12 @@ architecture Behavioral of waveform_player is
 	signal bram_addr : std_logic_vector(15 downto 0);
 	signal bram_en : std_logic;
 	
-	type player_state is (IDLE, ACTIVE);
+	type player_state is (S_IDLE, S_ACTIVE);
 	signal state, nextState : player_state;
 	signal btnr_db : std_logic;
 begin
 
+--Generate single port ROM initialized with mem_file
 xpm_memory_sprom_inst : xpm_memory_sprom generic map(
 	ADDR_WIDTH_A=>16,
 	--DECIMAL
@@ -96,6 +88,7 @@ xpm_memory_sprom_inst : xpm_memory_sprom generic map(
 
 bram_en <= '1';
 
+--state machine
 process (clk) begin
 	if rising_edge(clk) then
 		state <= nextState;
@@ -105,28 +98,31 @@ end process;
 process (start_pulse, bram_addr, state, rst) begin
 	nextState <= state;
 	if rst = '1' then
-		nextState <= IDLE;
+		nextState <= S_IDLE;
 	else
 		case state is
-			when IDLE =>
+			when S_IDLE =>
 				if start_pulse = '1' then
-					nextState <= ACTIVE;
+					nextState <= S_ACTIVE;
 				end if;
-			when ACTIVE =>
+			when S_ACTIVE =>
 				if unsigned(bram_addr) >= (mem_file_length-1) then
-					nextState <= IDLE;
+					nextState <= S_IDLE;
 				end if;
 			when others =>
-				nextState <= IDLE;
+				nextState <= S_IDLE;
 		end case;
 	end if;
 end process;
 
+--Memory address logic
 process(clk) begin
 	if rising_edge(clk) then
+		--set address to zero on reset or start_pulse
+		--note that start_pulse can occur during the active state
 		if (start_pulse = '1' or rst = '1') then 
 			bram_addr <= (others => '0');
-		elsif (state = ACTIVE and sample_pulse = '1') then
+		elsif (state = S_ACTIVE and sample_pulse = '1') then
 			bram_addr <= std_logic_vector(unsigned(bram_addr) + 1);
 		end if;
 	end if;

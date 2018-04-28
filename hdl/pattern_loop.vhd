@@ -1,21 +1,10 @@
 ----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
--- 
--- Create Date: 04/22/2018 03:55:47 PM
--- Design Name: 
--- Module Name: pattern_loop - Behavioral
--- Project Name: 
--- Target Devices: 
--- Tool Versions: 
--- Description: 
--- 
--- Dependencies: 
--- 
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
--- 
+--
+-- Author: Owen Lu
+--
+-- Description:
+-- Generates pulses to activate the instrument with timing based on the input pattern and 
+--
 ----------------------------------------------------------------------------------
 
 
@@ -34,8 +23,11 @@ use IEEE.NUMERIC_STD.ALL;
 entity pattern_loop is Port (
 	clk : in std_logic;
 	rst : in std_logic;
+	--Rhythm pattern
 	pattern : in std_logic_vector(15 downto 0);
+	--Current loop position (one-hot encoding)
 	beat : in unsigned(15 downto 0);
+	--Output
 	pulse_out : out std_logic
 	);
 end pattern_loop;
@@ -51,11 +43,13 @@ process (clk, rst) begin
 		beat_q <= x"0000";
 	elsif rising_edge(clk) then
 		beat_q <= beat;
+		--activate output if beat changes and the beat position is included in the pattern
 		if beat_q /= beat then
 			if (unsigned(pattern) and beat) /= x"0000" then
 				pulse <= '1';
 			end if;
 		end if;
+		--turn off output after one clock cycle
 		if pulse = '1' then
 			pulse <= '0';
 		end if;
