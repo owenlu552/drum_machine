@@ -39,10 +39,8 @@ architecture Behavioral of waveform_player is
 	signal bram_dout : std_logic_vector(15 downto 0);
 	signal bram_addr : std_logic_vector(15 downto 0);
 	signal bram_en : std_logic;
-	
-	type player_state is (S_IDLE, S_ACTIVE);
-	signal state, nextState : player_state;
 	signal btnr_db : std_logic;
+	signal active : std_logic;
 begin
 
 --Generate single port ROM initialized with mem_file
@@ -88,30 +86,19 @@ xpm_memory_sprom_inst : xpm_memory_sprom generic map(
 
 bram_en <= '1';
 
---state machine
-process (clk) begin
-	if rising_edge(clk) then
-		state <= nextState;
-	end if;
-end process;
-
-process (start_pulse, bram_addr, state, rst) begin
-	nextState <= state;
+process (clk, rst) begin
 	if rst = '1' then
-		nextState <= S_IDLE;
-	else
-		case state is
-			when S_IDLE =>
-				if start_pulse = '1' then
-					nextState <= S_ACTIVE;
-				end if;
-			when S_ACTIVE =>
-				if unsigned(bram_addr) >= (mem_file_length-1) then
-					nextState <= S_IDLE;
-				end if;
-			when others =>
-				nextState <= S_IDLE;
-		end case;
+		active <= '0';
+	elsif rising_edge(clk) then
+		if active = '0' then
+			if start_pulse = '1' then
+				active <= '1';
+			end if;
+		else
+			if unsigned(bram_addr) >= (mem_file_length-1) then
+				active <= '0';
+			end if;
+		end if;
 	end if;
 end process;
 
@@ -122,7 +109,7 @@ process(clk) begin
 		--note that start_pulse can occur during the active state
 		if (start_pulse = '1' or rst = '1') then 
 			bram_addr <= (others => '0');
-		elsif (state = S_ACTIVE and sample_pulse = '1') then
+		elsif (active = '1' and sample_pulse = '1') then
 			bram_addr <= std_logic_vector(unsigned(bram_addr) + 1);
 		end if;
 	end if;
