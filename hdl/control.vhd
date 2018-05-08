@@ -45,7 +45,7 @@ architecture Behavioral of control is
 	type top_state is (S_TEMPO, S_LENGTH, S_INST1, S_INST2, S_INST3);
 	signal state, next_state : top_state;
 	signal btnr_db, btnu_db, btnd_db : std_logic;
-	signal beat_pulse, sample_pulse : std_logic;
+	signal beat_pulse : std_logic;
 	signal beat_pulse_div : unsigned(27 downto 0);
 	signal beat_i : unsigned(15 downto 0);
 	signal set_tempo, set_length : std_logic;
